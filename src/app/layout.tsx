@@ -9,7 +9,6 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
-// https://github.com/TailAdmin/free-nextjs-admin-dashboard?tab=readme-ov-file
 
 export default function RootLayout({
   children,
