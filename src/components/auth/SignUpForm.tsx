@@ -15,9 +15,6 @@ export default function SignUpForm() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [businessName, setBusinessName] = useState("");
-  const [businessAddress, setBusinessAddress] = useState("");
-  const [contactInfo, setContactInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -36,16 +33,13 @@ export default function SignUpForm() {
     setError("");
 
     try {
-      const { error } = await signUp(email, password, {
-        name: businessName,
-        address: businessAddress || undefined,
-        contact_info: contactInfo || undefined,
-      });
+      const fullName = `${firstName} ${lastName}`.trim();
+      const { error } = await signUp(email, password, fullName);
 
       if (error) {
         setError(error.message);
       } else {
-        // Successful sign up - redirect to sign in or dashboard
+        // Successful sign up - redirect to sign in
         router.push("/signin?message=Account created successfully. Please sign in.");
       }
     } catch (err) {
@@ -170,43 +164,7 @@ export default function SignUpForm() {
                   </div>
                 </div>
 
-                {/* Business Information */}
-                <div>
-                  <Label>
-                    Business Name<span className="text-error-500">*</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter your business name"
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                    required
-                  />
-                </div>
 
-                <div>
-                  <Label>
-                    Business Address
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter your business address (optional)"
-                    value={businessAddress}
-                    onChange={(e) => setBusinessAddress(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Label>
-                    Contact Information
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="Phone, email, or other contact info (optional)"
-                    value={contactInfo}
-                    onChange={(e) => setContactInfo(e.target.value)}
-                  />
-                </div>
 
                 {/* <!-- Email --> */}
                 <div>

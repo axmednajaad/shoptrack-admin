@@ -31,8 +31,11 @@ export default function SignInForm() {
       if (error) {
         setError(error.message);
       } else {
-        // Successful sign in - redirect will be handled by ProtectedRoute
-        router.push("/");
+        // Successful sign in - wait a moment for profile to load, then redirect
+        setTimeout(() => {
+          // The AuthRedirect component will handle role-based redirection
+          router.push("/");
+        }, 100);
       }
     } catch (err) {
       setError("An unexpected error occurred");

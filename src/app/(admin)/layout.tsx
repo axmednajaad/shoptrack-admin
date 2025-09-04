@@ -5,21 +5,20 @@ import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import React from "react";
+import React, { memo, useMemo } from "react";
 
-export default function AdminLayout({
+const AdminLayout = memo(function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
-  // Dynamic class for main content margin based on sidebar state
-  const mainContentMargin = isMobileOpen
-    ? "ml-0"
-    : isExpanded || isHovered
-    ? "lg:ml-[290px]"
-    : "lg:ml-[90px]";
+  // Memoize dynamic class for main content margin based on sidebar state
+  const mainContentMargin = useMemo(() => {
+    if (isMobileOpen) return "ml-0";
+    return isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]";
+  }, [isMobileOpen, isExpanded, isHovered]);
 
   return (
     <ProtectedRoute>
@@ -39,4 +38,6 @@ export default function AdminLayout({
       </div>
     </ProtectedRoute>
   );
-}
+});
+
+export default AdminLayout;

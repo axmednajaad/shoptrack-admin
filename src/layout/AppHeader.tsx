@@ -5,24 +5,24 @@ import UserDropdown from "@/components/header/UserDropdown";
 import { useSidebar } from "@/context/SidebarContext";
 import Image from "next/image";
 import Link from "next/link";
-import React, { useState ,useEffect,useRef} from "react";
+import React, { useState, useEffect, useRef, memo, useCallback } from "react";
 
-const AppHeader: React.FC = () => {
+const AppHeader: React.FC = memo(() => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 
-  const handleToggle = () => {
+  const handleToggle = useCallback(() => {
     if (window.innerWidth >= 1024) {
       toggleSidebar();
     } else {
       toggleMobileSidebar();
     }
-  };
+  }, [toggleSidebar, toggleMobileSidebar]);
 
-  const toggleApplicationMenu = () => {
+  const toggleApplicationMenu = useCallback(() => {
     setApplicationMenuOpen(!isApplicationMenuOpen);
-  };
+  }, [isApplicationMenuOpen]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -175,6 +175,8 @@ const AppHeader: React.FC = () => {
       </div>
     </header>
   );
-};
+});
+
+AppHeader.displayName = 'AppHeader';
 
 export default AppHeader;

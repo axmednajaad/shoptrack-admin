@@ -1,11 +1,16 @@
 import SignInForm from "@/components/auth/SignInForm";
+import AuthRedirect from "@/components/auth/AuthRedirect";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Next.js SignIn Page | TailAdmin - Next.js Dashboard Template",
-  description: "This is Next.js Signin Page TailAdmin Dashboard Template",
+  title: "Sign In | ShopTrack Admin",
+  description: "Sign in to your ShopTrack Admin account",
 };
 
 export default function SignIn() {
-  return <SignInForm />;
+  return (
+    <AuthRedirect redirectAuthenticatedTo="role-based">
+      <SignInForm />
+    </AuthRedirect>
+  );
 }

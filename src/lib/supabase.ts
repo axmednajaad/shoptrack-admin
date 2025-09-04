@@ -15,16 +15,65 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
+// User roles enum
+export type UserRole = 'super_admin' | 'tenant_admin' | 'tenant_user'
+
 // Database types (we'll expand this as we build features)
 export interface Database {
   public: {
     Tables: {
+      user_profiles: {
+        Row: {
+          id: string
+          email: string
+          role: UserRole
+          tenant_id: string | null
+          full_name: string | null
+          status: 'active' | 'inactive' | 'suspended'
+          last_login: string | null
+          created_by: string | null
+          permissions: Record<string, any>
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          email: string
+          role: UserRole
+          tenant_id?: string | null
+          full_name?: string | null
+          status?: 'active' | 'inactive' | 'suspended'
+          last_login?: string | null
+          created_by?: string | null
+          permissions?: Record<string, any>
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          role?: UserRole
+          tenant_id?: string | null
+          full_name?: string | null
+          status?: 'active' | 'inactive' | 'suspended'
+          last_login?: string | null
+          created_by?: string | null
+          permissions?: Record<string, any>
+          created_at?: string
+          updated_at?: string
+        }
+      }
       tenants: {
         Row: {
           id: string
           name: string
           address: string | null
           contact_info: string | null
+          status: 'active' | 'inactive' | 'suspended'
+          settings: Record<string, any>
+          subscription_plan: string
+          max_users: number
+          created_by: string | null
           created_at: string
           updated_at: string
         }
@@ -33,6 +82,11 @@ export interface Database {
           name: string
           address?: string | null
           contact_info?: string | null
+          status?: 'active' | 'inactive' | 'suspended'
+          settings?: Record<string, any>
+          subscription_plan?: string
+          max_users?: number
+          created_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -41,6 +95,11 @@ export interface Database {
           name?: string
           address?: string | null
           contact_info?: string | null
+          status?: 'active' | 'inactive' | 'suspended'
+          settings?: Record<string, any>
+          subscription_plan?: string
+          max_users?: number
+          created_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -83,6 +142,7 @@ export interface Database {
           tenant_id: string
           name: string
           price: number
+          cost: number
           stock_quantity: number
           category_id: number | null
           description: string | null
@@ -94,6 +154,7 @@ export interface Database {
           tenant_id: string
           name: string
           price: number
+          cost?: number
           stock_quantity?: number
           category_id?: number | null
           description?: string | null
@@ -105,6 +166,7 @@ export interface Database {
           tenant_id?: string
           name?: string
           price?: number
+          cost?: number
           stock_quantity?: number
           category_id?: number | null
           description?: string | null

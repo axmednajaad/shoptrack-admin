@@ -1,23 +1,18 @@
 "use client";
-import React, { useEffect, useRef, useState,useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
+import { useAuth } from "../context/AuthContext";
 import {
   BoxCubeIcon,
-  CalenderIcon,
   ChevronDownIcon,
+  FolderIcon,
   GridIcon,
   HorizontaLDots,
-  ListIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
-  TableIcon,
   UserCircleIcon,
 } from "../icons/index";
-import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
   name: string;
@@ -26,60 +21,95 @@ type NavItem = {
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
-const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
-  },
-  {
-    icon: <CalenderIcon />,
-    name: "Calendar",
-    path: "/calendar",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
-  },
+// Base navigation items available to all users
+const getNavItems = (userRole?: string): NavItem[] => {
+  const baseItems: NavItem[] = [
+    {
+      icon: <GridIcon />,
+      name: "Dashboard",
+      path: userRole === 'tenant_admin' ? "/tenant-admin" : "/",
+    },
+  ];
 
-  // {
-  //   name: "Forms",
-  //   icon: <ListIcon />,
-  //   subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
-  // },
-  // {
-  //   name: "Pages",
-  //   icon: <PageIcon />,
-  //   subItems: [
-  //     { name: "Blank Page", path: "/blank", pro: false },
-  //     { name: "404 Error", path: "/error-404", pro: false },
-  //   ],
-  // },
-];
+  // Add role-specific items
+  if (userRole === 'super_admin') {
+    baseItems.push(
+      {
+        icon: <BoxCubeIcon />,
+        name: "Tenants",
+        path: "/super-admin/tenants",
+      },
+      {
+        icon: <UserCircleIcon />,
+        name: "Users",
+        path: "/super-admin/users",
+      }
+    );
+  } else if (userRole === 'tenant_admin') {
+    baseItems.push(
+      {
+        icon: <UserCircleIcon />,
+        name: "Customers",
+        path: "/tenant-admin/customers",
+      },
+      {
+        icon: <BoxCubeIcon />,
+        name: "Products",
+        path: "/tenant-admin/products",
+      },
+      {
+        icon: <FolderIcon />,
+        name: "Categories",
+        path: "/tenant-admin/categories",
+      },
+      {
+        icon: <UserCircleIcon />,
+        name: "Team Members",
+        path: "/tenant-admin/users",
+      }
+    );
+  }
 
-const othersItems: NavItem[] = [
-  {
-    icon: <PlugInIcon />,
-    name: "Authentication",
-    subItems: [
-      { name: "Sign In", path: "/signin", pro: false },
-      { name: "Sign Up", path: "/signup", pro: false },
-    ],
-  },
-];
+  return baseItems;
+};
 
-const AppSidebar: React.FC = () => {
+const othersItems: NavItem[] = [];
+
+const AppSidebar: React.FC = memo(() => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { userProfile } = useAuth();
   const pathname = usePathname();
 
-  const renderMenuItems = (
-    navItems: NavItem[],
+  // Memoize navigation items based on user role
+  const navItems = React.useMemo(() => getNavItems(userProfile?.role), [userProfile?.role]);
+
+  // State declarations
+  const [openSubmenu, setOpenSubmenu] = useState<{
+    type: "main" | "others";
+    index: number;
+  } | null>(null);
+
+  const [subMenuHeight, setSubMenuHeight] = useState<{
+    [key: string]: number;
+  }>({});
+
+  const subMenuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // Memoized isActive function
+  const isActive = useCallback((path: string) => {
+    if (path === "/") {
+      return pathname === "/";
+    }
+    return pathname.startsWith(path);
+  }, [pathname]);
+
+  const renderMenuItems = useCallback((
+    items: NavItem[],
     menuType: "main" | "others"
   ) => (
     <ul className="flex flex-col gap-4">
-      {navItems.map((nav, index) => (
-        <li key={nav.name}>
+      {items.map((nav, index) => (
+        <li key={`${menuType}-${nav.name}-${index}`}>
           {nav.subItems ? (
             <button
               onClick={() => handleSubmenuToggle(index, menuType)}
@@ -120,6 +150,7 @@ const AppSidebar: React.FC = () => {
             nav.path && (
               <Link
                 href={nav.path}
+                prefetch={false}
                 className={`menu-item group ${
                   isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                 }`}
@@ -157,6 +188,7 @@ const AppSidebar: React.FC = () => {
                   <li key={subItem.name}>
                     <Link
                       href={subItem.path}
+                      prefetch={false}
                       className={`menu-dropdown-item ${
                         isActive(subItem.path)
                           ? "menu-dropdown-item-active"
@@ -197,19 +229,7 @@ const AppSidebar: React.FC = () => {
         </li>
       ))}
     </ul>
-  );
-
-  const [openSubmenu, setOpenSubmenu] = useState<{
-    type: "main" | "others";
-    index: number;
-  } | null>(null);
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
-  );
-  const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
-  // const isActive = (path: string) => path === pathname;
-   const isActive = useCallback((path: string) => path === pathname, [pathname]);
+  ), [isExpanded, isHovered, isMobileOpen, openSubmenu, subMenuHeight, isActive]);
 
   useEffect(() => {
     // Check if the current path matches any submenu item
@@ -235,7 +255,7 @@ const AppSidebar: React.FC = () => {
     if (!submenuMatched) {
       setOpenSubmenu(null);
     }
-  }, [pathname,isActive]);
+  }, [pathname, isActive, navItems]);
 
   useEffect(() => {
     // Set the height of the submenu items when the submenu is opened
@@ -250,7 +270,7 @@ const AppSidebar: React.FC = () => {
     }
   }, [openSubmenu]);
 
-  const handleSubmenuToggle = (index: number, menuType: "main" | "others") => {
+  const handleSubmenuToggle = useCallback((index: number, menuType: "main" | "others") => {
     setOpenSubmenu((prevOpenSubmenu) => {
       if (
         prevOpenSubmenu &&
@@ -261,7 +281,7 @@ const AppSidebar: React.FC = () => {
       }
       return { type: menuType, index };
     });
-  };
+  }, []);
 
   return (
     <aside
@@ -330,29 +350,13 @@ const AppSidebar: React.FC = () => {
               </h2>
               {renderMenuItems(navItems, "main")}
             </div>
-
-            <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Others"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderMenuItems(othersItems, "others")}
-            </div>
           </div>
         </nav>
-        {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null}
       </div>
     </aside>
   );
-};
+});
+
+AppSidebar.displayName = 'AppSidebar';
 
 export default AppSidebar;

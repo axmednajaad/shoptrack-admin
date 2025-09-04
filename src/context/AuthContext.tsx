@@ -2,17 +2,25 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { supabase, UserRole } from '@/lib/supabase'
+
+interface UserProfile {
+  id: string
+  email: string
+  role: UserRole
+  tenant_id: string | null
+  full_name: string | null
+}
 
 interface AuthContextType {
   user: User | null
   session: Session | null
-  tenantId: string | null
+  userProfile: UserProfile | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
-  signUp: (email: string, password: string, tenantData?: { name: string; address?: string; contact_info?: string }) => Promise<{ error: AuthError | null }>
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
-  updateTenantId: (tenantId: string) => Promise<void>
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -32,8 +40,56 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [tenantId, setTenantId] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Function to fetch user profile
+  const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        // If table doesn't exist or user profile not found, create a default profile
+        if (error.code === 'PGRST116' || error.code === '42P01') {
+          console.warn('User profiles table not found or user profile missing. Creating default profile.')
+          // Return a default profile for now
+          return {
+            id: userId,
+            email: user?.email || '',
+            role: 'tenant_user' as UserRole,
+            tenant_id: null,
+            full_name: user?.user_metadata?.full_name || user?.email || ''
+          }
+        }
+        console.error('Error fetching user profile:', error)
+        return null
+      }
+
+      return data
+    } catch (error) {
+      console.error('Error fetching user profile:', error)
+      // Return a default profile to prevent infinite loading
+      return {
+        id: userId,
+        email: user?.email || '',
+        role: 'tenant_user' as UserRole,
+        tenant_id: null,
+        full_name: user?.user_metadata?.full_name || user?.email || ''
+      }
+    }
+  }
+
+  // Function to refresh user profile
+  const refreshProfile = async () => {
+    if (user) {
+      const profile = await fetchUserProfile(user.id)
+      setUserProfile(profile)
+    }
+  }
 
   useEffect(() => {
     // Get initial session
@@ -41,12 +97,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { data: { session } } = await supabase.auth.getSession()
       setSession(session)
       setUser(session?.user ?? null)
-      
-      // Get tenant ID from user metadata
-      if (session?.user?.user_metadata?.tenant_id) {
-        setTenantId(session.user.user_metadata.tenant_id)
+
+      // Fetch user profile if user exists
+      if (session?.user) {
+        const profile = await fetchUserProfile(session.user.id)
+        setUserProfile(profile)
       }
-      
+
       setLoading(false)
     }
 
@@ -57,14 +114,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       async (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
-        
-        // Update tenant ID from user metadata
-        if (session?.user?.user_metadata?.tenant_id) {
-          setTenantId(session.user.user_metadata.tenant_id)
+
+        // Fetch user profile if user exists
+        if (session?.user) {
+          const profile = await fetchUserProfile(session.user.id)
+          setUserProfile(profile)
         } else {
-          setTenantId(null)
+          setUserProfile(null)
         }
-        
+
         setLoading(false)
       }
     )
@@ -80,78 +138,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return { error }
   }
 
-  const signUp = async (
-    email: string, 
-    password: string, 
-    tenantData?: { name: string; address?: string; contact_info?: string }
-  ) => {
-    // First, create the user account
+  const signUp = async (email: string, password: string, fullName?: string) => {
+    // Create the user account with minimal data
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: fullName || email
+        }
+      }
     })
 
     if (error || !data.user) {
       return { error }
     }
 
-    // If tenant data is provided, create a tenant and associate it with the user
-    if (tenantData) {
-      try {
-        // Create tenant
-        const { data: tenant, error: tenantError } = await supabase
-          .from('tenants')
-          .insert([tenantData])
-          .select()
-          .single()
-
-        if (tenantError) {
-          console.error('Error creating tenant:', tenantError)
-          return { error: tenantError as AuthError }
-        }
-
-        // Update user metadata with tenant_id
-        const { error: updateError } = await supabase.auth.updateUser({
-          data: { tenant_id: tenant.id }
-        })
-
-        if (updateError) {
-          console.error('Error updating user metadata:', updateError)
-          return { error: updateError }
-        }
-      } catch (err) {
-        console.error('Error in tenant creation process:', err)
-        return { error: err as AuthError }
-      }
-    }
-
+    // The user profile will be created automatically by the database trigger
+    // with default role 'tenant_user'
     return { error: null }
   }
 
   const signOut = async () => {
     await supabase.auth.signOut()
-    setTenantId(null)
-  }
-
-  const updateTenantId = async (newTenantId: string) => {
-    const { error } = await supabase.auth.updateUser({
-      data: { tenant_id: newTenantId }
-    })
-    
-    if (!error) {
-      setTenantId(newTenantId)
-    }
+    setUserProfile(null)
   }
 
   const value = {
     user,
     session,
-    tenantId,
+    userProfile,
     loading,
     signIn,
     signUp,
     signOut,
-    updateTenantId,
+    refreshProfile,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
